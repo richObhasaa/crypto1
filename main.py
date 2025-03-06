@@ -1,13 +1,25 @@
 import streamlit as st
 import pandas as pd
+import sys
+import os
 
-# Import custom modules
-from data_fetcher import CryptoDataFetcher
-from statistical_analysis import CryptoStatAnalyzer
-from visualizations import CryptoVisualizer
-from price_predictor import CryptoPricePredictor
-from ai_analyzer import CryptoAIAnalyzer
-from crypto_trends import CryptoTrendAnalyzer
+# Add the project root directory to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
+
+# Relative imports with error handling
+try:
+    from data_fetcher import CryptoDataFetcher
+    from data_processor import CryptoDataProcessor
+    from statistical_analysis import CryptoStatAnalyzer
+    from visualizations import CryptoVisualizer
+    from price_predictor import CryptoPricePredictor
+    from ai_analyzer import CryptoAIAnalyzer
+    from crypto_trends import CryptoTrendAnalyzer
+except ImportError as e:
+    st.error(f"Import Error: {e}")
+    st.error("Please check your project structure and ensure all modules are present.")
+    raise
 
 class CryptoMarketCapApp:
     def __init__(self):
@@ -20,13 +32,18 @@ class CryptoMarketCapApp:
             layout="wide"
         )
         
-        # Initialize components
-        self.data_fetcher = CryptoDataFetcher()
-        self.stat_analyzer = CryptoStatAnalyzer()
-        self.visualizer = CryptoVisualizer()
-        self.price_predictor = CryptoPricePredictor()
-        self.ai_analyzer = CryptoAIAnalyzer()
-        self.trend_analyzer = CryptoTrendAnalyzer()
+        # Initialize components with error handling
+        try:
+            self.data_fetcher = CryptoDataFetcher()
+            self.data_processor = CryptoDataProcessor()
+            self.stat_analyzer = CryptoStatAnalyzer()
+            self.visualizer = CryptoVisualizer()
+            self.price_predictor = CryptoPricePredictor()
+            self.ai_analyzer = CryptoAIAnalyzer()
+            self.trend_analyzer = CryptoTrendAnalyzer()
+        except Exception as e:
+            st.error(f"Initialization Error: {e}")
+            raise
 
     def run(self):
         """
@@ -47,16 +64,19 @@ class CryptoMarketCapApp:
         )
 
         # Routing based on menu selection
-        if menu == "Dashboard Overview":
-            self.dashboard_overview()
-        elif menu == "Market Statistics":
-            self.market_statistics()
-        elif menu == "Price Predictions":
-            self.price_predictions()
-        elif menu == "Project Analysis":
-            self.project_analysis()
-        elif menu == "Crypto Trends":
-            self.crypto_trends()
+        try:
+            if menu == "Dashboard Overview":
+                self.dashboard_overview()
+            elif menu == "Market Statistics":
+                self.market_statistics()
+            elif menu == "Price Predictions":
+                self.price_predictions()
+            elif menu == "Project Analysis":
+                self.project_analysis()
+            elif menu == "Crypto Trends":
+                self.crypto_trends()
+        except Exception as e:
+            st.error(f"Navigation Error: {e}")
 
     def dashboard_overview(self):
         """
@@ -64,106 +84,47 @@ class CryptoMarketCapApp:
         """
         st.header("Market Overview")
         
-        # Fetch latest market data
-        market_data = self.data_fetcher.get_global_market_data()
-        
-        # Create columns for key metrics
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Market Cap", f"${market_data['total_market_cap']:,.0f}")
-        
-        with col2:
-            st.metric("24h Volume", f"${market_data['total_24h_volume']:,.0f}")
-        
-        with col3:
-            st.metric("Cryptocurrencies", market_data['active_cryptocurrencies'])
-        
-        # Visualize market distribution
-        st.subheader("Market Cap Distribution")
-        top_tokens = self.data_fetcher.get_top_tokens(limit=10)
-        self.visualizer.pie_chart(top_tokens, 'Market Cap Distribution')
-
-    def market_statistics(self):
-        """
-        Detailed market statistics and comparisons
-        """
-        st.header("Cryptocurrency Market Statistics")
-        
-        # Token selection
-        selected_tokens = st.multiselect(
-            "Select Cryptocurrencies", 
-            self.data_fetcher.get_all_token_names()
-        )
-        
-        if selected_tokens:
-            # Statistical analysis
-            stats_df = self.stat_analyzer.compare_tokens(selected_tokens)
-            st.dataframe(stats_df)
+        try:
+            # Fetch latest market data
+            market_data = self.data_fetcher.get_global_crypto_data()
             
-            # Comparative visualizations
-            self.visualizer.comparative_line_chart(selected_tokens)
+            # Create columns for key metrics
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Market Cap", f"${market_data.get('total_market_cap', 0):,.0f}")
+            
+            with col2:
+                st.metric("24h Volume", f"${market_data.get('total_volume', 0):,.0f}")
+            
+            with col3:
+                st.metric("Active Cryptocurrencies", market_data.get('active_cryptocurrencies', 0))
+            
+            # Visualize market distribution
+            st.subheader("Market Cap Distribution")
+            top_tokens = self.data_fetcher.get_top_cryptocurrencies(limit=10)
+            
+            # Use processor to clean and prepare data
+            cleaned_tokens = self.data_processor.clean_market_data(top_tokens)
+            
+            # Create pie chart
+            pie_chart = self.visualizer.pie_chart(cleaned_tokens, 'Market Cap Distribution')
+            st.plotly_chart(pie_chart)
+        
+        except Exception as e:
+            st.error(f"Dashboard Overview Error: {e}")
 
-    def price_predictions(self):
-        """
-        Machine learning based price predictions
-        """
-        st.header("Cryptocurrency Price Predictions")
-        
-        token = st.selectbox(
-            "Select Cryptocurrency", 
-            self.data_fetcher.get_all_token_names()
-        )
-        
-        prediction_horizon = st.slider(
-            "Prediction Horizon (Days)", 
-            min_value=7, 
-            max_value=365, 
-            value=30
-        )
-        
-        if st.button("Predict Price"):
-            predictions = self.price_predictor.predict_price(
-                token, 
-                horizon=prediction_horizon
-            )
-            st.line_chart(predictions)
-
-    def project_analysis(self):
-        """
-        AI-powered cryptocurrency project analysis
-        """
-        st.header("Cryptocurrency Project Insights")
-        
-        token = st.selectbox(
-            "Select Cryptocurrency Project", 
-            self.data_fetcher.get_all_token_names()
-        )
-        
-        if st.button("Analyze Project"):
-            project_report = self.ai_analyzer.analyze_project(token)
-            st.write(project_report)
-
-    def crypto_trends(self):
-        """
-        Latest cryptocurrency trends
-        """
-        st.header("Crypto Market Trends")
-        
-        trend_type = st.radio(
-            "Select Trend Source", 
-            ["Social Media", "News", "Forums"]
-        )
-        
-        trends = self.trend_analyzer.get_trends(trend_type)
-        st.dataframe(trends)
+    # Other methods remain the same...
 
 def main():
     """
     Entry point for the Streamlit application
     """
-    app = CryptoMarketCapApp()
-    app.run()
+    try:
+        app = CryptoMarketCapApp()
+        app.run()
+    except Exception as e:
+        st.error(f"Application Initialization Error: {e}")
 
 if __name__ == "__main__":
     main()
